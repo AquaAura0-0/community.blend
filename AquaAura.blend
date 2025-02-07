@@ -1,0 +1,56 @@
+// 掲示板の基本構造を作成
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { auth, db } from "@/firebase";
+import { collection, addDoc, onSnapshot } from "firebase/firestore";
+
+export default function Forum() {
+  const [posts, setPosts] = useState([]);
+  const [message, setMessage] = useState("");
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    auth.onAuthStateChanged((user) => setUser(user));
+    const unsubscribe = onSnapshot(collection(db, "posts"), (snapshot) => {
+      setPosts(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handlePost = async () => {
+    if (!user || !message) return;
+    await addDoc(collection(db, "posts"), {
+      user: user.email,
+      message,
+      timestamp: new Date(),
+    });
+    setMessage("");
+  };
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      {user ? (
+        <div className="mb-4 flex gap-2">
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="投稿内容を入力..."
+          />
+          <Button onClick={handlePost}>投稿</Button>
+        </div>
+      ) : (
+        <p className="text-center">ログインしてください</p>
+      )}
+      {posts.map((post) => (
+        <Card key={post.id} className="mb-2">
+          <CardContent>
+            <p className="text-sm text-gray-500">{post.user}</p>
+            <p>{post.message}</p>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
